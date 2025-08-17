@@ -1,0 +1,26 @@
+[project]
+name = "fbx2video"
+version = "0.1.0"
+description = "Add your description here"
+authors = [
+    { name = "akazdayo", email = "82073147+akazdayo@users.noreply.github.com" }
+]
+dependencies = [
+    "bpy>=4.5.1",
+]
+readme = "README.md"
+requires-python = ">= 3.8"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.rye]
+managed = true
+dev-dependencies = []
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fbx2video"]
