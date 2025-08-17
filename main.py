@@ -1,6 +1,7 @@
 import os
 import gradio as gr
 import subprocess
+import requests
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
@@ -9,6 +10,7 @@ from pydantic import BaseModel
 
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+
 client = genai.Client(api_key=GOOGLE_API_KEY)
 
 
@@ -24,7 +26,7 @@ def generate_label(path: str, lang: str):
         model="gemini-2.0-flash",
         contents=[
             types.Part(inline_data=types.Blob(data=video_bytes, mime_type="video/mp4")),
-            f"あなたは、モーションのラベル付けの専門家です。与えられた動画ファイルで示されている動きを、{lang}で詳細に説明してください。何の動きだかわからないときは、nullを入れてください。",
+            f"あなたは、モーションのラベル付けの専門家です。与えられた動画ファイルで示されている動きを、{lang}で詳細に説明してください。何の動きだかわからないときは、nullを入れてください。絶対に 動いている人の情報などはいりません。動きの情報のみを入れてください。",
         ],
         config={
             "response_mime_type": "application/json",
@@ -55,7 +57,31 @@ def handle_file(file, lang):
         mp4_path = temp_input_path.replace(".fbx", ".mp4")
         if os.path.exists(mp4_path):
             label = generate_label(mp4_path, lang)
-            return "変換完了", mp4_path, label.label if label else "null"
+            final_label = label.label
+
+            if final_label != "null":
+                files = [
+                    (
+                        "files",
+                        (
+                            "temp.fbx",
+                            open(temp_input_path, "rb"),
+                            "model/fbx",
+                        ),
+                    )
+                ]
+                data = {"label": final_label}
+                res = requests.post(
+                    "http://localhost:3000/docs", files=files, data=data
+                )
+
+                if res.status_code == 200:
+                    return "アップロード完了", mp4_path, final_label
+                else:
+                    return f"APIエラー: {res.text}", mp4_path, final_label
+            else:
+                return "ラベルの変換に失敗しました。", mp4_path, None
+
         else:
             return "動画変換に失敗しました。", None, None
 

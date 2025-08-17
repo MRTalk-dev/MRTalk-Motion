@@ -1280,6 +1280,7 @@ dependencies = [
     { name = "google-generativeai" },
     { name = "gradio" },
     { name = "python-dotenv" },
+    { name = "requests" },
 ]
 
 [package.metadata]
@@ -1291,6 +1292,7 @@ requires-dist = [
     { name = "google-generativeai", specifier = ">=0.8.5" },
     { name = "gradio", specifier = ">=5.42.0" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
+    { name = "requests", specifier = ">=2.32.4" },
 ]
 
 [[package]]
