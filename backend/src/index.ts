@@ -123,14 +123,20 @@ app.get(
   async (c) => {
     try {
       const body = c.req.valid("query");
-      const res = await collection.query({ queryTexts: [body.query] });
-      const filtered = filterSearchResults(res);
+      const res = await collection.query({
+        queryTexts: [body.query],
+        nResults: 1,
+      });
 
-      if (filtered.length === 0) {
+      if (res.ids[0]!.length <= 0) {
         return c.json({ error: "モーションが見つかりませんでした。" });
       }
 
-      return c.json({ id: filtered[0] });
+      return c.json({
+        id: res.ids[0]![0],
+        doc: res.documents[0]![0],
+        distance: res.distances[0]![0],
+      });
     } catch {
       return c.json({ error: "検索中にエラーが発生しました。" });
     }

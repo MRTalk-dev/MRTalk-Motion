@@ -40,7 +40,7 @@ def generate_motion_label_from_video(video_path, lang):
         model="gemini-2.0-flash",
         contents=[
             types.Part(inline_data=types.Blob(data=video_bytes, mime_type="video/mp4")),
-            f"あなたは、モーションのラベル付けの専門家です。与えられた動画ファイルの人物がしている行動を、{lang}の1文で表してください。何の動きだかわからないときは、nullを入れてください。絶対に主語を入れてはいけません。",
+            f"You are an expert in motion labeling. Describe the action that the person in the given video file is performing in one sentence in {lang}. If you cannot identify the action, write null. Do not include a subject under any circumstances.",
         ],
         config={
             "response_mime_type": "application/json",
@@ -55,7 +55,7 @@ def generate_motion_label_from_action(action, lang):
     response = client.models.generate_content(
         model="gemini-2.0-flash",
         contents=[
-            f"あなたは、モーションのラベル付けの専門家です。{action}を、{lang}の1文で表してください。",
+            f"You are an expert in motion labeling. Write a one-sentence label in {lang} that starts with 'Doing {action}' and describes the motion style or manner of the action, without using any subject."
         ],
         config={
             "response_mime_type": "application/json",
@@ -124,7 +124,7 @@ with gr.Blocks() as demo:
             )
 
             lang_dropdown = gr.Dropdown(
-                ["日本語", "English"], value="日本語", label="ラベルの言語"
+                ["日本語", "English"], value="English", label="ラベルの言語"
             )
 
             use_filename_checkbox = gr.Checkbox(
