@@ -4,6 +4,7 @@ import { validator } from "hono/validator";
 import z from "zod";
 import { collection } from "../lib";
 import { serveStatic } from "hono/bun";
+import { logger } from "hono/logger";
 
 const AddSchema = z.object({
   files: z.union([
@@ -38,6 +39,7 @@ const SearchSchema = z.object({
 });
 
 const app = new Hono();
+app.use(logger());
 
 app
   .get("/docs", async (c) => {
@@ -114,10 +116,21 @@ app
       try {
         const body = c.req.valid("json");
 
-        await collection.delete({ ids: [body.id] });
+        const res = await collection.get({ ids: [body.id] });
 
+        if (res) {
+          await collection.delete({ ids: [body.id] });
+          const path = `motions/${res.ids[0]}.fbx`;
+          const file = Bun.file(path);
+          await file.delete();
+
+          return c.json({
+            message: "モーションが正常に削除されました。",
+          });
+        } else {
+        }
         return c.json({
-          message: "モーションが正常に削除されました。",
+          message: "モーションが見つかりませんでした。",
         });
       } catch (e) {
         return c.json({
@@ -185,5 +198,7 @@ app.get(
 );
 
 app.use("/motions/*", serveStatic({ root: "./" }));
+
+app.get("/", serveStatic({ path: "./views/index.html" }));
 
 export default app;

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="jp">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/beercss@3.11.33/dist/cdn/beer.min.css"
+      rel="stylesheet"
+    />
+    <script
+      type="module"
+      src="https://cdn.jsdelivr.net/npm/beercss@3.11.33/dist/cdn/beer.min.js"
+    ></script>
+    <script
+      type="module"
+      src="https://cdn.jsdelivr.net/npm/material-dynamic-colors@1.1.2/dist/cdn/material-dynamic-colors.min.js"
+    ></script>
+    <title>MRTalk Motion</title>
+  </head>
+  <body>
+    <main class="responsive">
+      <article class="center-align">
+        <h2>MRTalk MotionDB</h2>
+        <button class="large-elevate" onclick="loadMotions()">
+          <i>refresh</i>
+          <span>更新</span>
+        </button>
+      </article>
+
+      <div id="motions-container" class="grid">
+        <p class="center-align">モーションを読み込み中...</p>
+      </div>
+    </main>
+
+    <script>
+      let motions = [];
+
+      async function loadMotions() {
+        try {
+          const response = await fetch("/docs");
+          const data = await response.json();
+
+          if (response.ok) {
+            motions = data;
+            displayMotions();
+          } else {
+            showError("モーションの読み込みに失敗しました");
+          }
+        } catch (error) {
+          showError("ネットワークエラーが発生しました");
+        }
+      }
+
+      function displayMotions() {
+        const container = document.getElementById("motions-container");
+
+        if (motions.length === 0) {
+          container.innerHTML =
+            '<p class="center-align">登録されているモーションがありません</p>';
+          return;
+        }
+
+        container.innerHTML = motions
+          .map(
+            (motion) => `
+          <article class="card s6">
+            <div class="padding">
+              <h6>${motion.doc}</h6>
+              <p class="small-text">ID: ${motion.id}</p>
+              <div class="space"></div>
+              <div class="row">
+                <button class="small" onclick="deleteMotion('${motion.id}')">
+                  <i>delete</i>
+                  <span>削除</span>
+                </button>
+              </div>
+            </div>
+          </article>
+        `
+          )
+          .join("");
+      }
+
+      async function deleteMotion(id) {
+        if (!confirm("このモーションを削除してもよろしいですか？")) {
+          return;
+        }
+
+        try {
+          const response = await fetch("/docs", {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ id }),
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            showSuccess(data.message);
+            loadMotions();
+          } else {
+            showError(data.error || "削除に失敗しました");
+          }
+        } catch (error) {
+          showError("ネットワークエラーが発生しました");
+        }
+      }
+
+      function showSuccess(message) {
+        const toast = document.createElement("div");
+        toast.className = "snackbar success";
+        toast.innerHTML = `<i>check_circle</i><span>${message}</span>`;
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+          toast.remove();
+        }, 3000);
+      }
+
+      function showError(message) {
+        const toast = document.createElement("div");
+        toast.className = "snackbar error";
+        toast.innerHTML = `<i>error</i><span>${message}</span>`;
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+          toast.remove();
+        }, 3000);
+      }
+
+      loadMotions();
+    </script>
+  </body>
+</html>
