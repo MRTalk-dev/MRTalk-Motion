@@ -8,5 +8,8 @@ dependencies = [
     "bpy>=4.5.1",
     "chromadb>=1.0.17",
     "fastapi[standard]>=0.116.1",
+    "google-genai>=1.30.0",
+    "google-generativeai>=0.8.5",
     "gradio>=5.42.0",
+    "python-dotenv>=1.1.1",
 ]

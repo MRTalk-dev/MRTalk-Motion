@@ -1,53 +1,84 @@
 import os
 import gradio as gr
 import subprocess
+from dotenv import load_dotenv
+from google import genai
+from google.genai import types
+from typing import Optional
+from pydantic import BaseModel
+
+load_dotenv()
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+client = genai.Client(api_key=GOOGLE_API_KEY)
 
 
-def handle_file(file, progress=gr.Progress()):
+class MotionLabel(BaseModel):
+    label: Optional[str]
+
+
+def generate_label(path: str, lang: str):
+    video_file_name = path
+    video_bytes = open(video_file_name, "rb").read()
+
+    response = client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=[
+            types.Part(inline_data=types.Blob(data=video_bytes, mime_type="video/mp4")),
+            f"あなたは、モーションのラベル付けの専門家です。与えられた動画ファイルで示されている動きを、{lang}で詳細に説明してください。何の動きだかわからないときは、nullを入れてください。",
+        ],
+        config={
+            "response_mime_type": "application/json",
+            "response_schema": MotionLabel,
+            "temperature": 0.1,
+        },
+    )
+
+    return response.parsed
+
+
+def handle_file(file, lang):
     if file is None:
-        return "ファイルがアップロードされていません", None
-
-    progress(0.2, desc="ファイルを読み込み中...")
+        return "ファイルがアップロードされていません", None, None
 
     with open(file, "rb") as f:
         binary_data = f.read()
 
     temp_input_path = os.path.join("./temp/", "temp.fbx")
 
-    progress(0.4, desc="ファイルを保存中...")
-
+    os.makedirs("./temp/", exist_ok=True)
     with open(temp_input_path, "wb") as f:
         f.write(binary_data)
 
-    progress(0.6, desc="MP4に変換中...")
-
     try:
-        subprocess.run(["uv", "run", "convert.py"])
-        progress(1.0, desc="完了！")
+        subprocess.run(["uv", "run", "convert.py"], check=True)
 
         mp4_path = temp_input_path.replace(".fbx", ".mp4")
         if os.path.exists(mp4_path):
-            return "変換完了", mp4_path
+            label = generate_label(mp4_path, lang)
+            return "変換完了", mp4_path, label.label if label else "null"
         else:
-            return "処理完了", None
+            return "動画変換に失敗しました。", None, None
 
     except Exception as e:
-        return f"エラーが発生しました: {str(e)}", None
+        return f"エラーが発生しました: {str(e)}", None, None
 
 
 with gr.Blocks() as demo:
     gr.Markdown("""
-    # FBX to MP4 Converter
-    FBXファイルをMP4動画に変換します
+    # MRTalk-Motion Uploader
     """)
 
     with gr.Row():
         with gr.Column():
             upload_btn = gr.UploadButton(
-                "ファイルを選択（.fbx)",
+                "ファイルを選択（.fbx）",
                 file_types=[".fbx"],
                 file_count="single",
                 variant="primary",
+            )
+
+            lang_dropdown = gr.Dropdown(
+                ["日本語", "English"], value="日本語", label="ラベルの言語"
             )
 
             output_text = gr.Textbox(
@@ -56,11 +87,19 @@ with gr.Blocks() as demo:
                 lines=2,
             )
 
+            label_text = gr.Textbox(
+                label="生成されたラベル",
+                placeholder="モーションのラベルが表示されます",
+                lines=2,
+            )
+
         with gr.Column():
             output_video = gr.Video(label="変換後の動画", visible=True)
 
     upload_btn.upload(
-        fn=handle_file, inputs=upload_btn, outputs=[output_text, output_video]
+        fn=handle_file,
+        inputs=[upload_btn, lang_dropdown],
+        outputs=[output_text, output_video, label_text],
     )
 
 demo.launch()
