@@ -18,15 +18,29 @@ class MotionLabel(BaseModel):
     label: Optional[str]
 
 
-def generate_label(path: str, lang: str):
-    video_file_name = path
-    video_bytes = open(video_file_name, "rb").read()
+def save_temp_file(file_bytes, filename="temp.fbx", temp_dir="./temp/"):
+    os.makedirs(temp_dir, exist_ok=True)
+    temp_path = os.path.join(temp_dir, filename)
+    with open(temp_path, "wb") as f:
+        f.write(file_bytes)
+    return temp_path
 
+
+def convert_fbx_to_mp4(fbx_path):
+    subprocess.run(["uv", "run", "convert.py"], check=True)
+    mp4_path = fbx_path.replace(".fbx", ".mp4")
+    if os.path.exists(mp4_path):
+        return mp4_path
+    return None
+
+
+def generate_motion_label_from_video(video_path, lang):
+    video_bytes = open(video_path, "rb").read()
     response = client.models.generate_content(
         model="gemini-2.0-flash",
         contents=[
             types.Part(inline_data=types.Blob(data=video_bytes, mime_type="video/mp4")),
-            f"あなたは、モーションのラベル付けの専門家です。与えられた動画ファイルで示されている動きを、{lang}で詳細に説明してください。何の動きだかわからないときは、nullを入れてください。絶対に 動いている人の情報などはいりません。動きの情報のみを入れてください。",
+            f"あなたは、モーションのラベル付けの専門家です。与えられた動画ファイルの人物がしている行動を、{lang}の1文で表してください。何の動きだかわからないときは、nullを入れてください。絶対に主語を入れてはいけません。",
         ],
         config={
             "response_mime_type": "application/json",
@@ -34,65 +48,71 @@ def generate_label(path: str, lang: str):
             "temperature": 0.1,
         },
     )
+    return response.parsed.label  # type: ignore
 
-    return response.parsed
+
+def generate_motion_label_from_action(action, lang):
+    response = client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=[
+            f"あなたは、モーションのラベル付けの専門家です。{action}を、{lang}の1文で表してください。",
+        ],
+        config={
+            "response_mime_type": "application/json",
+            "response_schema": MotionLabel,
+            "temperature": 0.1,
+        },
+    )
+    return response.parsed.label  # type: ignore
 
 
-def handle_file(file, lang):
+def upload_to_api(fbx_path, label):
+    files = [
+        (
+            "files",
+            (os.path.basename(fbx_path), open(fbx_path, "rb"), "model/fbx"),
+        )
+    ]
+    data = {"label": label}
+    res = requests.post("http://localhost:3000/docs", files=files, data=data)
+    return res.status_code == 200, res.text
+
+
+def handle_file(file, lang, use_filename):
     if file is None:
         return "ファイルがアップロードされていません", None, None
 
-    with open(file, "rb") as f:
-        binary_data = f.read()
+    filename = os.path.basename(file.name)
+    action = os.path.splitext(filename)[0]
 
-    temp_input_path = os.path.join("./temp/", "temp.fbx")
-
-    os.makedirs("./temp/", exist_ok=True)
-    with open(temp_input_path, "wb") as f:
-        f.write(binary_data)
+    binary_data = open(file, "rb").read()
+    temp_input_path = save_temp_file(binary_data)
 
     try:
-        subprocess.run(["uv", "run", "convert.py"], check=True)
+        if use_filename:
+            final_label = generate_motion_label_from_action(action, lang)
+            mp4_path = None
+        else:
+            mp4_path = convert_fbx_to_mp4(temp_input_path)
+            if not mp4_path:
+                return "動画変換に失敗しました。", None, None
 
-        mp4_path = temp_input_path.replace(".fbx", ".mp4")
-        if os.path.exists(mp4_path):
-            label = generate_label(mp4_path, lang)
-            final_label = label.label
-
-            if final_label != "null":
-                files = [
-                    (
-                        "files",
-                        (
-                            "temp.fbx",
-                            open(temp_input_path, "rb"),
-                            "model/fbx",
-                        ),
-                    )
-                ]
-                data = {"label": final_label}
-                res = requests.post(
-                    "http://localhost:3000/docs", files=files, data=data
-                )
-
-                if res.status_code == 200:
-                    return "アップロード完了", mp4_path, final_label
-                else:
-                    return f"APIエラー: {res.text}", mp4_path, final_label
-            else:
+            final_label = generate_motion_label_from_video(mp4_path, lang)
+            if final_label == "null":
                 return "ラベルの変換に失敗しました。", mp4_path, None
 
+        success, api_msg = upload_to_api(temp_input_path, final_label)
+        if success:
+            return "アップロード完了", mp4_path, final_label
         else:
-            return "動画変換に失敗しました。", None, None
+            return f"APIエラー: {api_msg}", mp4_path, final_label
 
     except Exception as e:
         return f"エラーが発生しました: {str(e)}", None, None
 
 
 with gr.Blocks() as demo:
-    gr.Markdown("""
-    # MRTalk-Motion Uploader
-    """)
+    gr.Markdown("# MRTalk-Motion Uploader")
 
     with gr.Row():
         with gr.Column():
@@ -105,6 +125,10 @@ with gr.Blocks() as demo:
 
             lang_dropdown = gr.Dropdown(
                 ["日本語", "English"], value="日本語", label="ラベルの言語"
+            )
+
+            use_filename_checkbox = gr.Checkbox(
+                label="ファイル名からラベルを生成する", value=False
             )
 
             output_text = gr.Textbox(
@@ -124,7 +148,7 @@ with gr.Blocks() as demo:
 
     upload_btn.upload(
         fn=handle_file,
-        inputs=[upload_btn, lang_dropdown],
+        inputs=[upload_btn, lang_dropdown, use_filename_checkbox],
         outputs=[output_text, output_video, label_text],
     )
 
