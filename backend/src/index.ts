@@ -64,7 +64,7 @@ app.post(
   "/docs",
   validator("form", (value, c) => {
     const parsed = AddSchema.safeParse(value);
-    if (!parsed.success) return c.text("Invalid Body.", 401);
+    if (!parsed.success) return c.text("Invalid Body.", 400);
     return parsed.data;
   }),
   async (c) => {
@@ -93,7 +93,7 @@ app.delete(
   "/docs",
   validator("json", (value, c) => {
     const parsed = DeleteSchema.safeParse(value);
-    if (!parsed.success) return c.text("Invalid Body.", 401);
+    if (!parsed.success) return c.text("Invalid Body.", 400);
     return parsed.data;
   }),
   async (c) => {
@@ -118,7 +118,7 @@ app.get(
   "/search",
   validator("query", (value, c) => {
     const parsed = SearchSchema.safeParse(value);
-    if (!parsed.success) return c.text("Invalid Query.", 401);
+    if (!parsed.success) return c.text("Invalid Query.", 400);
     return parsed.data;
   }),
   async (c) => {
