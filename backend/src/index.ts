@@ -5,7 +5,6 @@ import z from "zod";
 import {
   addToCollection,
   collection,
-  filterSearchResults,
   getAllDocs,
   getFromCollection,
   removeFromCollection,
@@ -13,6 +12,7 @@ import {
 import { serveStatic } from "hono/bun";
 import { logger } from "hono/logger";
 import { deleteFile, saveFile } from "../lib/file";
+import { cors } from "hono/cors";
 
 const AddSchema = z.object({
   files: z.union([
@@ -48,6 +48,7 @@ const SearchSchema = z.object({
 
 const app = new Hono();
 app.use(logger());
+app.use("*", cors());
 
 app.get("/docs", async (c) => {
   try {
@@ -143,7 +144,7 @@ app.get(
   }
 );
 
-app.use("/motions/*", serveStatic({ root: "./" }));
+app.use("/motions/*", serveStatic({ root: "./", mimes: { model: "fbx" } }));
 app.get("/", serveStatic({ path: "./views/index.html" }));
 
 export default app;
