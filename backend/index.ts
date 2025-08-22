@@ -8,11 +8,16 @@ import {
   getAllDocs,
   getFromCollection,
   removeFromCollection,
-} from "../lib/db";
+} from "./lib/db";
 import { serveStatic } from "hono/bun";
 import { logger } from "hono/logger";
-import { deleteFile, saveFile } from "../lib/file";
+import { deleteFile, saveFile } from "./lib/file";
 import { cors } from "hono/cors";
+
+const url = process.env.URL
+  ? new URL(process.env.URL)
+  : new URL("http://localhost:3000");
+const port = url.port;
 
 const AddSchema = z.object({
   files: z.union([
@@ -135,6 +140,7 @@ app.get(
 
       return c.json({
         id: res.ids[0]![0],
+        url: `${url.href}motions/${res.ids[0]![0]}.fbx`,
         doc: res.documents[0]![0],
         distance: res.distances[0]![0],
       });
@@ -147,4 +153,8 @@ app.get(
 app.use("/motions/*", serveStatic({ root: "./", mimes: { model: "fbx" } }));
 app.get("/", serveStatic({ path: "./views/index.html" }));
 
-export default app;
+Bun.serve({
+  fetch: app.fetch,
+  port: port,
+});
+console.log(`Server running on http://localhost:${port}`);
