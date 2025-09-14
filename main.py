@@ -74,7 +74,7 @@ def upload_to_api(fbx_path, label):
         )
     ]
     data = {"label": label}
-    res = requests.post("http://localhost:3000/docs", files=files, data=data)
+    res = requests.post("http://bun:3000/docs", files=files, data=data)
     return res.status_code == 200, res.text
 
 
@@ -152,4 +152,5 @@ with gr.Blocks() as demo:
         outputs=[output_text, output_video, label_text],
     )
 
-demo.launch()
+if __name__ == "__main__":
+    demo.launch(server_name="0.0.0.0", server_port=7860)

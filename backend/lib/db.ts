@@ -1,6 +1,8 @@
 import { ChromaClient } from "chromadb";
 
-const client = new ChromaClient();
+const client = new ChromaClient({
+  path: process.env.CHROMA_URL || "http://localhost:8000",
+});
 
 export const collection = await client.getOrCreateCollection({
   name: "motions",
@@ -24,7 +26,7 @@ export async function getAllDocs() {
 
 export function filterSearchResults(
   res: Awaited<ReturnType<typeof collection.query>>,
-  distanceThreshold = 1
+  distanceThreshold = 1,
 ) {
   const filtered: { document: string; id: string; distance: number }[] = [];
   res.documents[0]!.forEach((doc, i) => {

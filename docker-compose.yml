@@ -1,0 +1,25 @@
+services:
+  python:
+    build:
+      context: ./
+    ports:
+      - "7860:7860"
+  bun:
+    build:
+      context: ./backend
+    ports:
+      - "3000:3000"
+    volumes:
+      - "./backend/motions:/app/motions"
+    environment:
+      - CHROMA_URL=http://chroma:8000
+    depends_on:
+      - chroma
+  chroma:
+    image: chromadb/chroma:latest
+    ports:
+      - "8000:8000"
+    environment:
+      - CHROMA_DB_DIR=/chroma/data
+    volumes:
+      - "./backend/db:/chroma/data"
