@@ -19,7 +19,5 @@ services:
     image: chromadb/chroma:latest
     ports:
       - "8000:8000"
-    environment:
-      - CHROMA_DB_DIR=/chroma/data
     volumes:
-      - "./backend/db:/chroma/data"
+      - "./backend/db:/data"
